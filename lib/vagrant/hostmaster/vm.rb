@@ -73,7 +73,12 @@ module Vagrant
         def add_command(options = {})
           uuid = options[:uuid] || self.uuid
           hosts_path = options[:hosts_path] || self.class.hosts_path
-          %Q(sh -c 'echo "#{host_entry(uuid)}" >>#{hosts_path}')
+          entries = Array.new
+          host_table.each do |addr,names|
+            entries << %Q(#{host_entry(uuid, addr, names)})
+          end
+          entries << %Q(#{host_entry(uuid)})
+          %Q(sh -c 'echo "#{entries.join('\n')}" >>#{hosts_path}')
         end
 
         def address
@@ -85,8 +90,12 @@ module Vagrant
           @host_aliases ||= Array(config.hosts.aliases)
         end
 
-        def host_entry(uuid = self.uuid)
-          %Q(#{address}  #{host_names.join(' ')}  #{signature(uuid)})
+        def host_entry(uuid = self.uuid, entry_address=nil, entry_names=nil)
+          if entry_address.nil?
+            %Q(#{address}  #{host_names.join(' ')}  #{signature(uuid)})
+          else
+            %Q(#{entry_address}  #{Array(entry_names).join(' ')}  #{signature(uuid)})
+          end
         end
 
         def host_name
@@ -95,6 +104,10 @@ module Vagrant
 
         def host_names
           @host_names ||= (Array(host_name) + host_aliases)
+        end
+
+        def host_table
+          @host_table ||= (config.hosts.table || {})
         end
 
         def process_guests?(options = {})
